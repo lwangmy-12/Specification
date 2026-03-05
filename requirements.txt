@@ -1,0 +1,13 @@
+# Core RAG
+langchain>=0.3.0
+langchain-community>=0.3.0
+langchain-openai>=0.2.0
+openai>=1.40.0
+faiss-cpu>=1.8.0
+pypdf>=4.0.0
+tiktoken>=0.7.0
+
+# API server
+fastapi>=0.115.0
+uvicorn[standard]>=0.30.0
+python-multipart>=0.0.9
