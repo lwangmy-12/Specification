@@ -126,6 +126,37 @@ html,body{height:100%;font-family:var(--font);background:var(--bg);color:var(--g
    MAIN AREA
 ═══════════════════════════════════════════════════════════════════ */
 #main{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0}
+#content-row{display:flex;flex:1;overflow:hidden}
+#chat-column{display:flex;flex-direction:column;flex:1;min-width:320px;overflow:hidden}
+#pdf-panel{
+  width:46%;min-width:380px;flex-shrink:0;
+  display:flex;flex-direction:column;
+  border-left:2px solid var(--gray-200);
+  background:#fff;
+  transition:width .2s ease;
+}
+#pdf-panel.hidden{display:none}
+.pdf-header{
+  display:flex;align-items:center;gap:.6rem;
+  padding:.55rem .9rem;
+  background:var(--navy);
+  flex-shrink:0;
+}
+.pdf-doc-badge{
+  padding:.2rem .55rem;border-radius:999px;font-size:.68rem;font-weight:700;
+  text-transform:uppercase;letter-spacing:.05em;
+}
+.pdf-doc-bdm{background:#d0e8ff;color:#1a3a7a}
+.pdf-doc-aashto{background:#d0f0e0;color:#1a5a30}
+#pdf-label{color:rgba(255,255,255,.85);font-size:.78rem;font-weight:600;flex:1}
+.pdf-close-btn{
+  background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.25);
+  color:#fff;border-radius:5px;padding:.2rem .6rem;
+  font-size:.75rem;cursor:pointer;
+  transition:background .15s;
+}
+.pdf-close-btn:hover{background:rgba(255,255,255,.25)}
+#pdf-frame{flex:1;border:none;width:100%;display:block}
 
 /* ── Top bar ─────────────────────────────────────────────────────────────── */
 #topbar{
@@ -422,6 +453,10 @@ html,body{height:100%;font-family:var(--font);background:var(--bg);color:var(--g
     </div>
   </div>
 
+  <!-- Content row: chat + pdf panel -->
+  <div id="content-row">
+  <div id="chat-column">
+
   <!-- Chat scroll area -->
   <div id="chat-area">
     <!-- Welcome screen (shown when no messages) -->
@@ -469,6 +504,18 @@ html,body{height:100%;font-family:var(--font);background:var(--bg);color:var(--g
     <div class="input-hint">Ctrl + Enter to send &nbsp;·&nbsp; Multi-turn conversation supported</div>
   </div>
 
+  </div><!-- /chat-column -->
+
+  <!-- PDF Preview Panel -->
+  <div id="pdf-panel" class="hidden">
+    <div class="pdf-header">
+      <span id="pdf-label">PDF Viewer</span>
+      <button class="pdf-close-btn" onclick="closePdf()">&#10005; Close</button>
+    </div>
+    <iframe id="pdf-frame" src="about:blank"></iframe>
+  </div>
+
+  </div><!-- /content-row -->
 </div><!-- /main -->
 </div><!-- /app -->
 
@@ -608,9 +655,10 @@ function assistantCard(data, idx){
 
   // Build sections tab content
   const tabs = [
-    {id:'ref',  icon:'📋', label:'Section Reference', body: data.reference },
-    {id:'sum',  icon:'📄', label:'Specification Summary', body: data.summary },
-    {id:'guid', icon:'🏗️', label:'Practice Guidance', body: data.guidance },
+    {id:'ref',  icon:'📋', label:'Section Reference',      body: data.reference },
+    {id:'bdm',  icon:'📄', label:'BDM Spec Text',          body: data.bdm_text },
+    {id:'ash',  icon:'📗', label:'AASHTO LRFD Text',       body: data.aashto_text },
+    {id:'guid', icon:'🏗️', label:'Practice Guidance',      body: data.guidance },
   ];
   const tabsHtml = tabs.map((t,i) =>
     `<div class="stab ${i===0?'active':''}" onclick="switchTab('${idx}','${t.id}',this)">
@@ -625,9 +673,9 @@ function assistantCard(data, idx){
     <div class="override-banner">
       <span class="ov-icon">⚠️</span>
       <div class="ov-text">
-        <strong>ODOT State-Specific Requirement Detected</strong>
-        BDM Section 1000 (ODOT Supplement to LRFD) material retrieved.
-        Ohio DOT requirements govern over AASHTO LRFD. See Section Reference tab.
+        <strong>BDM Section 1000 (ODOT Supplement) Detected</strong>
+        Ohio-specific supplement requirements found. See BDM Spec Text tab.
+        Both BDM and AASHTO LRFD requirements must be satisfied.
       </div>
     </div>` : '';
 
@@ -675,23 +723,35 @@ function switchTab(msgIdx, tabId, el){
    CITATION CHIPS
 ════════════════════════════════════════════════════════════════════════ */
 function citChip(c){
-  const cls     = c.src === 'BDM' ? 'bdm' : 'aashto';
-  const label   = c.src === 'BDM' ? 'BDM' : 'AASHTO';
+  const cls       = c.src === 'BDM' ? 'bdm' : 'aashto';
+  const label     = c.src === 'BDM' ? 'BDM' : 'AASHTO';
+  const artLabel  = c.article ? `${label} ${c.article}` : `${label} p.${c.page}`;
   const bindBadge = !c.binding ? `<span class="cit-badge">commentary</span>` : '';
-  const excerpt = esc(c.excerpt || '').slice(0, 120) + (c.excerpt && c.excerpt.length > 120 ? '…' : '');
+  const excerpt   = esc(c.excerpt || '').slice(0, 120) + (c.excerpt && c.excerpt.length > 120 ? '…' : '');
   return `<button class="cit-chip ${cls}${!c.binding?' commentary':''}"
-            onclick="openPdf('${c.src}',${c.page})"
-            title="Page ${c.page} — click to open PDF">
-      📄 ${label} p.${c.page}${bindBadge}
+            onclick="openPdf('${c.src}',${c.page},'${c.article||''}')"
+            title="${artLabel} — p.${c.page} — click to open PDF">
+      📄 ${artLabel}${bindBadge}
       <span class="cit-tip">${excerpt || 'No preview available.'}</span>
     </button>`;
 }
 
-function openPdf(source, page){
+function openPdf(source, page, article){
   const url = PDF_URLS[source];
   if(!url) return;
-  // Open in new tab; browser PDF viewer supports #page=N
-  window.open(`${url}#page=${page}`, '_blank');
+  const panel = document.getElementById('pdf-panel');
+  const frame = document.getElementById('pdf-frame');
+  const label = document.getElementById('pdf-label');
+  const cls   = source === 'BDM' ? 'pdf-doc-bdm' : 'pdf-doc-aashto';
+  const artStr = article ? ` — ${article}` : '';
+  label.innerHTML = `<span class="pdf-doc-badge ${cls}">${source}</span>&nbsp;Page ${page}${esc(artStr)}`;
+  frame.src = `${url}#page=${page}`;
+  panel.classList.remove('hidden');
+}
+
+function closePdf(){
+  document.getElementById('pdf-panel').classList.add('hidden');
+  document.getElementById('pdf-frame').src = 'about:blank';
 }
 
 /* ════════════════════════════════════════════════════════════════════════

@@ -1,6 +1,5 @@
 #!/bin/bash
-# entrypoint.sh — Container startup script
-# Runs ingestion automatically if vector stores are missing, then starts the API server.
+# entrypoint.sh — Check for actual index files (not just directories)
 
 set -e
 
@@ -8,26 +7,26 @@ echo "============================================================"
 echo "  ODOT BDM + AASHTO LRFD Specification Assistant"
 echo "============================================================"
 
-# Validate required environment variable
 if [ -z "$OPENAI_API_KEY" ]; then
-    echo ""
     echo "ERROR: OPENAI_API_KEY is not set."
-    echo "Set it in your .env file or pass it with -e OPENAI_API_KEY=sk-..."
-    echo ""
     exit 1
 fi
 
-# Build vector stores if they don't already exist
-if [ ! -d "/app/vector_store/bdm" ] || [ ! -d "/app/vector_store/aashto" ]; then
+# Check for the actual FAISS index files, not just the directory.
+# A directory can exist from a partial/failed previous run without the index inside.
+BDM_INDEX="/app/vector_store/bdm/index.faiss"
+AASHTO_INDEX="/app/vector_store/aashto/index.faiss"
+
+if [ ! -f "$BDM_INDEX" ] || [ ! -f "$AASHTO_INDEX" ]; then
     echo ""
-    echo "[+] Vector stores not found — running ingestion from /app/doc/ ..."
+    echo "[+] Vector stores incomplete — running ingestion from /app/doc/ ..."
     echo "    This may take several minutes on first run."
     echo ""
     python ingest.py
     echo ""
     echo "[✓] Ingestion complete."
 else
-    echo "[✓] Vector stores found — skipping ingestion."
+    echo "[✓] Vector stores ready — skipping ingestion."
 fi
 
 echo ""

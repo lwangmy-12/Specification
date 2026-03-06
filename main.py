@@ -68,16 +68,18 @@ class QueryRequest(BaseModel):
 
 
 class Citation(BaseModel):
-    source:  str   # "BDM" | "AASHTO"
-    page:    int   # 1-indexed PDF page number
-    excerpt: str   # ~180 char preview
-    binding: bool  # False if commentary (C-section)
+    source:  str        # "BDM" | "AASHTO"
+    page:    int        # 1-indexed PDF page number
+    article: str = ""  # article/section number extracted from text
+    excerpt: str        # ~180 char preview
+    binding: bool       # False if commentary (C-section)
 
 
 class QueryResponse(BaseModel):
     has_override:     bool
     reference:        str
-    summary:          str
+    bdm_text:         str
+    aashto_text:      str
     guidance:         str
     raw:              str
     standalone_q:     str
@@ -96,9 +98,10 @@ class HealthResponse(BaseModel):
 # ── Response section parser ───────────────────────────────────────────────────
 
 _SECTION_PATTERNS = [
-    ("reference", r"\[Article/Section Reference\](.*?)(?=\[Specification Summary\]|\Z)"),
-    ("summary",   r"\[Specification Summary\](.*?)(?=\[Engineering Practice Guidance\]|\Z)"),
-    ("guidance",  r"\[Engineering Practice Guidance\](.*?)(?=\Z)"),
+    ("reference",  r"\[Article/Section Reference\](.*?)(?=\[BDM Specification Text\]|\Z)"),
+    ("bdm_text",   r"\[BDM Specification Text\](.*?)(?=\[AASHTO LRFD Specification Text\]|\Z)"),
+    ("aashto_text",r"\[AASHTO LRFD Specification Text\](.*?)(?=\[Engineering Practice Guidance\]|\Z)"),
+    ("guidance",   r"\[Engineering Practice Guidance\](.*?)(?=\Z)"),
 ]
 
 def _parse_sections(text: str) -> dict:
@@ -174,9 +177,10 @@ async def query(req: QueryRequest):
 
     return QueryResponse(
         has_override     = has_override,
-        reference        = sections.get("reference", ""),
-        summary          = sections.get("summary", ""),
-        guidance         = sections.get("guidance", ""),
+        reference        = sections.get("reference",  ""),
+        bdm_text         = sections.get("bdm_text",   ""),
+        aashto_text      = sections.get("aashto_text",""),
+        guidance         = sections.get("guidance",   ""),
         raw              = result["answer"],
         standalone_q     = result.get("standalone_q", req.question),
         bdm_citations    = [Citation(**c) for c in result.get("bdm_citations",    [])],

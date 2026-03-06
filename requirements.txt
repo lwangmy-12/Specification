@@ -1,8 +1,9 @@
-# Core RAG
-langchain>=0.3.0
-langchain-community>=0.3.0
-langchain-openai>=0.2.0
-openai>=1.40.0
+# Core RAG — pinned to langchain 0.3.x (1.x removed langchain.chains)
+langchain>=0.3.0,<1.0.0
+langchain-text-splitters>=0.3.0,<1.0.0
+langchain-community>=0.3.0,<1.0.0
+langchain-openai>=0.2.0,<1.0.0
+openai>=1.40.0,<3.0.0
 faiss-cpu>=1.8.0
 pypdf>=4.0.0
 tiktoken>=0.7.0
