@@ -736,6 +736,9 @@ function citChip(c){
     </button>`;
 }
 
+let _pdfTimer = null;          // pending load timer
+let _pdfActiveSrc = null;      // currently loaded src
+
 function openPdf(source, page, article){
   const url = PDF_URLS[source];
   if(!url) return;
@@ -745,11 +748,25 @@ function openPdf(source, page, article){
   const cls   = source === 'BDM' ? 'pdf-doc-bdm' : 'pdf-doc-aashto';
   const artStr = article ? ` — ${article}` : '';
   label.innerHTML = `<span class="pdf-doc-badge ${cls}">${source}</span>&nbsp;Page ${page}${esc(artStr)}`;
-  frame.src = `${url}#page=${page}`;
+
+  const newSrc = `${url}#page=${page}`;
   panel.classList.remove('hidden');
+
+  // Cancel any previously queued navigation
+  if(_pdfTimer){ clearTimeout(_pdfTimer); _pdfTimer = null; }
+
+  if(_pdfActiveSrc === newSrc) return;   // already showing this exact page
+
+  // Browser PDF viewers do not respond to fragment-only src changes once loaded.
+  // Always force a full reload via about:blank, then the target URL.
+  _pdfActiveSrc = newSrc;
+  frame.src = 'about:blank';
+  _pdfTimer = setTimeout(() => { frame.src = newSrc; _pdfTimer = null; }, 150);
 }
 
 function closePdf(){
+  if(_pdfTimer){ clearTimeout(_pdfTimer); _pdfTimer = null; }
+  _pdfActiveSrc = null;
   document.getElementById('pdf-panel').classList.add('hidden');
   document.getElementById('pdf-frame').src = 'about:blank';
 }
